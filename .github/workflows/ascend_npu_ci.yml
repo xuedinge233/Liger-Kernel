@@ -1,0 +1,128 @@
+name: Ascend NPU
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "test/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "test/**"
+  workflow_dispatch:
+    inputs:
+      runner:
+        required: true
+        type: choice
+        options:
+          - linux-arm64-npu-1
+          - linux-arm64-npu-2
+          - linux-arm64-npu-4
+        default: "linux-arm64-npu-1"
+        description: "The runner selected to run on"
+  schedule:
+    - cron: "0 12 * * 0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checkstyle:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    
+    - name: Checkout Liger-Kernel
+      uses: actions/checkout@v6
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+
+    - name: Install dependencies
+      run: |
+        uv pip install -r dev/fmt-requirements.txt
+        uv pip list
+
+    - name: Run checkstyle
+      run: make checkstyle
+
+  tests:
+    name: Tests (${{ matrix.name }})
+    runs-on: ${{ github.event.inputs.runner || 'linux-arm64-npu-1' }}
+    needs: [checkstyle]
+    if: success()
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: transformers
+            command: >-
+              python -m pytest test/transformers
+                --cov=src/liger_kernel
+                --cov-report=term-missing
+                --ignore=test/convergence
+                --disable-warnings
+          - name: full
+            command: make test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.3.rc1-910b-ubuntu22.04-py3.11
+      options: >-
+        --privileged
+        -v /dev/davinci_manager:/dev/davinci_manager
+        -v /dev/devmm_svm:/dev/devmm_svm
+        -v /dev/hisi_hdc:/dev/hisi_hdc
+        --ipc=host
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Checkout Liger-Kernel
+      uses: actions/checkout@v6
+
+    - name: Set up Python
+      run: |
+        python --version
+
+    - name: Verify NPU availability
+      run: |
+        npu-smi info
+        echo "NPU devices available"
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+
+    - name: Install torch_npu and triton-ascend
+      run: |
+        uv pip install attrs==24.2.0 numpy==1.26.4 scipy==1.13.1 decorator==5.1.1 psutil==6.0.0 pytest==9.0.2 pytest-xdist==3.6.1 pyyaml pybind11
+        uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+        uv pip install torch_npu==2.6.0
+        uv pip install triton-ascend==3.2.0rc4
+        python3 -c "import torch; import torch_npu; print(torch_npu.npu.is_available())"
+        python -c "import torch_npu; print('torch_npu version:', torch_npu.__version__)"
+
+    - name: Setup Dependencies
+      run: |
+        echo "torch_npu==2.6.0" >> constraints.txt
+        uv pip install -e .[dev] -c constraints.txt
+
+    - name: List Python Environments
+      run: uv pip list
+
+    - name: Run Unit Tests
+      run: |
+        ${{ matrix.command }} 2>&1
