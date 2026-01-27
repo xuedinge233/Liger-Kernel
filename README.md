@@ -365,7 +365,7 @@ loss.backward()
             </div>
             <div style="display: block;">
                 <a href="https://github.com/xuedinge233/Liger-Kernel/actions/workflows/ascend_npu_ci.yml">
-                    <img src="https://github.com/xuedinge233/Liger-Kernel/actions/workflows/ascend_npu_ci.yml/badge.svg?branch=main&event=push" alt="Build">
+                    <img src="https://github.com/xuedinge233/Liger-Kernel/actions/workflows/ascend_npu_ci.yml/badge.svg?branch=main" alt="Build">
                 </a>
             </div>
         </td>
