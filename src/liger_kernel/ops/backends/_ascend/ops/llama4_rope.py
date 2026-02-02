@@ -83,11 +83,7 @@ def _triton_llama4_rope_npu(
 ):
     """
     Llama4 RoPE on Ascend NPU for interleaved complex layout:
-<<<<<<< HEAD
-    - q/k shape: (bs, sl, n_heads, hd), where hd = 2*head_dim_half
-=======
     - q/k shape: (bs, sl, n_heads, hd)
->>>>>>> upstream/main
     - last dim layout: [real0, imag0, real1, imag1, ...]
     - freqs_real/imag: (sl, hd//2)
     """
