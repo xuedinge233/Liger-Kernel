@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - "src/**"
+      - "src/liger_kernel/ops/backends/_ascend/**"
       - "test/**"
   pull_request:
     branches:
       - main
     paths:
-      - "src/**"
+      - "src/liger_kernel/ops/backends/_ascend/**"
       - "test/**"
   workflow_dispatch:
     inputs:
@@ -43,7 +43,7 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: '3.10'
-    
+
     - name: Checkout Liger-Kernel
       uses: actions/checkout@v6
 
@@ -74,7 +74,7 @@ jobs:
           # - name: full
           #   command: make test
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.3.rc1-910b-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
       options: >-
         --privileged
         -v /dev/davinci_manager:/dev/davinci_manager
@@ -94,7 +94,9 @@ jobs:
       run: |
         npu-smi info
         echo "NPU devices available"
-        cat $ASCEND_TOOLKIT_HOME/toolkit/version.info
+        ls -l $ASCEND_TOOLKIT_HOME
+        ls -l $ASCEND_TOOLKIT_HOME/toolkit
+        cat $ASCEND_TOOLKIT_HOME/toolkit/version.info || true
 
     - name: Setup uv
       uses: astral-sh/setup-uv@v7
@@ -110,12 +112,21 @@ jobs:
         uv pip install attrs==24.2.0 numpy==1.26.4 scipy==1.13.1 decorator==5.1.1 psutil==6.0.0 pytest==9.0.2 pytest-xdist==3.6.1 pyyaml pybind11 transformers==4.57.6
         uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
         uv pip install torch_npu==2.6.0
-        uv pip install triton-ascend==3.2.0rc4
+        uv pip install triton-ascend==3.2.0
         python3 -c "import torch; import torch_npu; print(torch_npu.npu.is_available())"
         python -c "import torch_npu; print('torch_npu version:', torch_npu.__version__)"
 
     - name: List Python Environments
       run: uv pip list
+
+    - name: Test script
+      run: |
+        python3 -c "from tbe.common.platform import get_soc_spec
+        # Query UB size (get_soc_spec returns size in bytes)
+        ub_size_bytes = get_soc_spec("UB_SIZE")
+        # Convert bytes to bits
+        ub_capacity_bits = ub_size_bytes * 8
+        print(ub_capacity_bits)"
 
     - name: Run Unit Tests
       run: |
