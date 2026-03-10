@@ -26,7 +26,7 @@ on:
         default: "linux-aarch64-a2-1"
         description: "The runner selected to run on"
   schedule:
-    - cron: "0 12 * * *"
+    - cron: "0 8,22 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -71,10 +71,10 @@ jobs:
         include:
           - name: transformers
             command: python -m pytest test/transformers --cov=src/liger_kernel  --cov-report=term-missing --disable-warnings --ignore=test/transformers/test_fused_neighborhood_attention.py  
-          # - name: full
-          #   command: make test
+          - name: full
+            command: make test
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-910b-ubuntu22.04-py3.11
       options: >-
         --privileged
         -v /dev/davinci_manager:/dev/davinci_manager
@@ -113,15 +113,6 @@ jobs:
 
     - name: List Python Environments
       run: pip list
-
-    - name: Test script
-      run: |
-        python3 -c "from tbe.common.platform import get_soc_spec
-        # Query UB size (get_soc_spec returns size in bytes)
-        ub_size_bytes = get_soc_spec("UB_SIZE")
-        # Convert bytes to bits
-        ub_capacity_bits = ub_size_bytes * 8
-        print(ub_capacity_bits)"
 
     - name: Run Unit Tests
       run: |
