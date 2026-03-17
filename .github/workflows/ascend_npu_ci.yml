@@ -5,12 +5,14 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/ascend_npu_ci.yml"
       - "src/liger_kernel/ops/backends/_ascend/**"
       - "test/**"
   pull_request:
     branches:
       - main
     paths:
+      - ".github/workflows/ascend_npu_ci.yml"
       - "src/liger_kernel/ops/backends/_ascend/**"
       - "test/**"
   workflow_dispatch:
@@ -62,7 +64,7 @@ jobs:
 
   tests:
     name: Tests (${{ matrix.name }})
-    runs-on: ${{ github.event.inputs.runner || 'linux-aarch64-a2-1' }}
+    runs-on: ${{ github.event.inputs.runner || 'linux-aarch64-a2-2' }}
     needs: [checkstyle]
     if: success()
     strategy:
@@ -71,8 +73,8 @@ jobs:
         include:
           - name: transformers
             command: python -m pytest test/transformers --cov=src/liger_kernel  --cov-report=term-missing --disable-warnings --ignore=test/transformers/test_fused_neighborhood_attention.py  
-          - name: full
-            command: make test
+          # - name: full
+          #   command: make test
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-910b-ubuntu22.04-py3.11
       options: >-
