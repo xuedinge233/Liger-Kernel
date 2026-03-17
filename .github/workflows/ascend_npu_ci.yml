@@ -118,4 +118,19 @@ jobs:
 
     - name: Run Unit Tests
       run: |
-        ${{ matrix.command }}
+        set -o pipefail
+        ${{ matrix.command }} 2>&1 | tee test_output.log
+
+    - name: Extract failed operators to log
+      if: failure()
+      run: |
+        echo "=== Failed Operators (unique) ===" > failed_ops.log
+        grep -E "^test/.*::.*(FAILED|ERROR)|^FAILED test/.*::" test_output.log 2>/dev/null | sed 's/ *FAILED.*//' | sed 's/ *ERROR.*//' | sed 's/^FAILED //' | sort -u >> failed_ops.log || true
+        cat failed_ops.log
+
+    - name: Upload failed ops log
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failed-ops-${{ matrix.name }}
+        path: failed_ops.log
