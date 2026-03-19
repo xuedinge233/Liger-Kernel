@@ -87,6 +87,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
 
+    - name: Checkout Liger-Kernel
+      uses: actions/checkout@v6
+      with:
+        repository: Liger-Kernel/Liger-Kernel
+        path: Liger-Kernel
+        fetch-depth: 1
+
     - name: Set up Python
       run: |
         # Python should be pre-installed in the container image
@@ -101,6 +108,7 @@ jobs:
         cat $ASCEND_TOOLKIT_HOME/toolkit/version.info || true
 
     - name: Setup Dependencies
+      working-directory: Liger-Kernel
       run: |
         pip install -e .[dev]
 
@@ -117,5 +125,7 @@ jobs:
       run: pip list
 
     - name: Run Unit Tests
+      working-directory: Liger-Kernel
       run: |
         ${{ matrix.command }}
+
