@@ -87,6 +87,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
 
+    - name: Checkout Liger-Kernel
+      uses: actions/checkout@v6
+      with:
+        repository: Liger-Kernel/Liger-Kernel
+        path: Liger-Kernel
+        fetch-depth: 1
+
     - name: Set up Python
       run: |
         # Python should be pre-installed in the container image
@@ -101,6 +108,7 @@ jobs:
         cat $ASCEND_TOOLKIT_HOME/toolkit/version.info || true
 
     - name: Setup Dependencies
+      working-directory: Liger-Kernel
       run: |
         pip install -e .[dev]
 
@@ -117,20 +125,7 @@ jobs:
       run: pip list
 
     - name: Run Unit Tests
+      working-directory: Liger-Kernel
       run: |
-        set -o pipefail
-        ${{ matrix.command }} 2>&1 | tee test_output.log
+        ${{ matrix.command }}
 
-    - name: Extract failed operators to log
-      if: failure()
-      run: |
-        echo "=== Failed Operators (unique) ===" > failed_ops.log
-        grep -E "^test/.*::.*(FAILED|ERROR)|^FAILED test/.*::" test_output.log 2>/dev/null | sed 's/ *FAILED.*//' | sed 's/ *ERROR.*//' | sed 's/^FAILED //' | sort -u >> failed_ops.log || true
-        cat failed_ops.log
-
-    - name: Upload failed ops log
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: failed-ops-${{ matrix.name }}
-        path: failed_ops.log
