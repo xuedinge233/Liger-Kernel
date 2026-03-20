@@ -90,7 +90,7 @@ jobs:
     - name: Checkout Liger-Kernel
       uses: actions/checkout@v6
       with:
-        repository: Liger-Kernel/Liger-Kernel
+        repository: linkedin/Liger-Kernel
         path: Liger-Kernel
         fetch-depth: 1
 
