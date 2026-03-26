@@ -72,7 +72,7 @@ jobs:
       matrix:
         include:
           - name: transformers
-            command: python -m pytest test/transformers --cov=src/liger_kernel  --cov-report=term-missing --disable-warnings --ignore=test/transformers/test_fused_neighborhood_attention.py  
+            command: python -m pytest test/transformers --cov=src/liger_kernel  --cov-report=term-missing --disable-warnings
           # - name: full
           #   command: make test
     container:
@@ -114,7 +114,7 @@ jobs:
 
     - name: Install torch_npu and triton-ascend
       run: |
-        pip install attrs==24.2.0 numpy==1.26.4 scipy==1.13.1 decorator==5.1.1 psutil==6.0.0 pytest==9.0.2 pytest-xdist==3.6.1 pyyaml pybind11 transformers==4.57.6
+        pip install attrs==24.2.0 numpy==1.26.4 scipy==1.13.1 decorator==5.1.1 psutil==6.0.0 pytest==9.0.2 pytest-xdist==3.6.1 pyyaml pybind11 transformers==5.3.0
         pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
         pip install torch_npu==2.6.0
         pip install triton-ascend==3.2.0
