@@ -80,6 +80,7 @@ jobs:
       - name: Run benchmarks
         working-directory: Liger-Kernel
         env:
+          TORCH_COMPILE_DISABLE: "1"
           EXCLUDE: >
             benchmark/scripts/benchmark_mhc.py
             benchmark/scripts/benchmark_mhc_lm.py
