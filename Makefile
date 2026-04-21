@@ -40,8 +40,20 @@ test-convergence:
 # By default this doesn't overwrite existing data for the same benchmark experiment
 # run with `make run-benchmarks OVERWRITE=1` to overwrite existing benchmark data
 BENCHMARK_DIR = benchmark/scripts
-BENCHMARK_SCRIPTS = $(wildcard $(BENCHMARK_DIR)/benchmark_*.py)
+ALL_BENCHMARK_SCRIPTS = $(wildcard $(BENCHMARK_DIR)/benchmark_*.py)
+
+# Optional filters
+INCLUDE ?=
+EXCLUDE ?=
 OVERWRITE ?= 0
+
+# If INCLUDE is set → use only those
+# Otherwise use all scripts minus EXCLUDE
+ifeq ($(strip $(INCLUDE)),)
+	BENCHMARK_SCRIPTS = $(filter-out $(EXCLUDE), $(ALL_BENCHMARK_SCRIPTS))
+else
+	BENCHMARK_SCRIPTS = $(INCLUDE)
+endif
 
 run-benchmarks:
 	@for script in $(BENCHMARK_SCRIPTS); do \
