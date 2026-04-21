@@ -56,14 +56,16 @@ else
 endif
 
 run-benchmarks:
-	@for script in $(BENCHMARK_SCRIPTS); do \
-		echo "Running benchmark: $$script"; \
-		if [ $(OVERWRITE) -eq 1 ]; then \
-			python $$script --overwrite; \
-		else \
-			python $$script; \
-		fi; \
-	done
+	@echo "EXCLUDE=$(EXCLUDE)"
+	@echo "SCRIPTS=$(BENCHMARK_SCRIPTS)"
+# 	@for script in $(BENCHMARK_SCRIPTS); do \
+# 		echo "Running benchmark: $$script"; \
+# 		if [ $(OVERWRITE) -eq 1 ]; then \
+# 			python $$script --overwrite; \
+# 		else \
+# 			python $$script; \
+# 		fi; \
+# 	done
 
 # MkDocs Configuration
 MKDOCS = mkdocs

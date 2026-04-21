@@ -89,4 +89,5 @@ jobs:
             benchmark/scripts/benchmark_sparse_multi_token_attention.py
             benchmark/scripts/benchmark_swiglu.py
         run: |
+          echo "EXCLUDE=$EXCLUDE"
           make run-benchmarks EXCLUDE="$EXCLUDE"
