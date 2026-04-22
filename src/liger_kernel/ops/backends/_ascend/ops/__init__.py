@@ -14,6 +14,9 @@ To add a new operator:
 If __all__ is not defined, all public symbols will be auto-discovered.
 """
 
+from liger_kernel.ops.backends._ascend.ops.cross_entropy import LigerCrossEntropyFunction
+from liger_kernel.ops.backends._ascend.ops.cross_entropy import cross_entropy_backward
+from liger_kernel.ops.backends._ascend.ops.cross_entropy import cross_entropy_forward
 from liger_kernel.ops.backends._ascend.ops.dyt import LigerDyTFunction
 from liger_kernel.ops.backends._ascend.ops.dyt import liger_dyt_bwd
 from liger_kernel.ops.backends._ascend.ops.dyt import liger_dyt_fwd
@@ -23,9 +26,14 @@ from liger_kernel.ops.backends._ascend.ops.embedding import embedding_forward
 from liger_kernel.ops.backends._ascend.ops.fused_add_rms_norm import LigerFusedAddRMSNormFunction
 from liger_kernel.ops.backends._ascend.ops.fused_add_rms_norm import fused_add_rms_norm_backward
 from liger_kernel.ops.backends._ascend.ops.fused_add_rms_norm import fused_add_rms_norm_forward
+from liger_kernel.ops.backends._ascend.ops.fused_linear_cross_entropy import LigerFusedLinearCrossEntropyFunction
+from liger_kernel.ops.backends._ascend.ops.fused_linear_cross_entropy import fused_linear_cross_entropy_backward
+from liger_kernel.ops.backends._ascend.ops.fused_linear_cross_entropy import fused_linear_cross_entropy_forward
 from liger_kernel.ops.backends._ascend.ops.fused_linear_jsd import LigerFusedLinearJSDFunction
 from liger_kernel.ops.backends._ascend.ops.fused_linear_jsd import fused_linear_jsd_backward
 from liger_kernel.ops.backends._ascend.ops.fused_linear_jsd import fused_linear_jsd_forward
+from liger_kernel.ops.backends._ascend.ops.fused_neighborhood_attention import LigerFusedNeighborhoodAttentionFunction
+from liger_kernel.ops.backends._ascend.ops.fused_neighborhood_attention import fused_neighborhood_attention_forward
 from liger_kernel.ops.backends._ascend.ops.geglu import LigerGELUMulFunction
 from liger_kernel.ops.backends._ascend.ops.geglu import geglu_backward
 from liger_kernel.ops.backends._ascend.ops.geglu import geglu_forward
@@ -47,6 +55,9 @@ from liger_kernel.ops.backends._ascend.ops.layer_norm import layer_norm_forward
 from liger_kernel.ops.backends._ascend.ops.llama4_rope import LigerLlama4RopeFunction
 from liger_kernel.ops.backends._ascend.ops.llama4_rope import llama4_rope_backward
 from liger_kernel.ops.backends._ascend.ops.llama4_rope import llama4_rope_forward
+from liger_kernel.ops.backends._ascend.ops.mhc import LigerMHCCoeffsFunction
+from liger_kernel.ops.backends._ascend.ops.mhc import LigerMHCPostResFunction
+from liger_kernel.ops.backends._ascend.ops.mhc import LigerMHCPreFunction
 from liger_kernel.ops.backends._ascend.ops.poly_norm import LigerPolyNormFunction
 from liger_kernel.ops.backends._ascend.ops.poly_norm import poly_norm_backward
 from liger_kernel.ops.backends._ascend.ops.poly_norm import poly_norm_forward
@@ -62,6 +73,9 @@ from liger_kernel.ops.backends._ascend.ops.rope import rope_forward
 from liger_kernel.ops.backends._ascend.ops.softmax import LigerSoftmaxFunction
 from liger_kernel.ops.backends._ascend.ops.softmax import _softmax_backward
 from liger_kernel.ops.backends._ascend.ops.softmax import _softmax_forward
+from liger_kernel.ops.backends._ascend.ops.sparsemax import LigerSparsemaxFunction
+from liger_kernel.ops.backends._ascend.ops.sparsemax import sparsemax_backward
+from liger_kernel.ops.backends._ascend.ops.sparsemax import sparsemax_forward
 from liger_kernel.ops.backends._ascend.ops.swiglu import LigerSiLUMulFunction
 from liger_kernel.ops.backends._ascend.ops.swiglu import swiglu_backward
 from liger_kernel.ops.backends._ascend.ops.swiglu import swiglu_forward
@@ -115,6 +129,9 @@ __all__ = [
     "LigerJSDFunction",
     "jsd_forward",
     "jsd_backward",
+    "LigerCrossEntropyFunction",
+    "cross_entropy_backward",
+    "cross_entropy_forward",
     "GrpoLossFunction",
     "grpo_loss_forward_triton",
     "grpo_loss_backward_triton",
@@ -124,4 +141,15 @@ __all__ = [
     "LigerGroupNormFunction",
     "group_norm_forward",
     "group_norm_backward",
+    "LigerSparsemaxFunction",
+    "sparsemax_forward",
+    "sparsemax_backward",
+    "LigerFusedNeighborhoodAttentionFunction",
+    "fused_neighborhood_attention_forward",
+    "LigerFusedLinearCrossEntropyFunction",
+    "fused_linear_cross_entropy_forward",
+    "fused_linear_cross_entropy_backward",
+    "LigerMHCCoeffsFunction",
+    "LigerMHCPreFunction",
+    "LigerMHCPostResFunction",
 ]

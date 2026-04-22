@@ -28,7 +28,9 @@ import math
 from dataclasses import dataclass
 from typing import Callable
 from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Tuple
 
 import torch
 
@@ -58,6 +60,15 @@ class ModelConfig:
     rms_norm_eps: float = 1e-5
     dtype: torch.dtype = torch.bfloat16
 
+    # ===== MoE-specific (optional) =====
+    num_experts: Optional[int] = None
+    topk: Optional[int] = None
+    moe_intermediate_size: Optional[int] = None
+
+    @property
+    def is_moe(self) -> bool:
+        return self.num_experts is not None
+
 
 @dataclass(frozen=True)
 class SeqLenSweepConfig:
@@ -73,19 +84,51 @@ class SeqLenSweepConfig:
 
 
 @dataclass(frozen=True)
-class HiddenSizeSweepConfig:
-    """Config for benchmarks that sweep hidden_size with fixed BT (e.g. DyT).
+class ModelConfigSweepConfig:
+    """Config for benchmarks that sweep across model configs.
 
     Attributes:
-        bt: Fixed batch * seq dimension.
-        max_hidden_size: Upper bound for hidden_size sweep.
+        model_configs: Model configs to benchmark (as tuple for immutability).
+        bt: Effective total tokens (batch_size * seq_len).
+        batch_size: Safe batch size across all model configs.
+        seq_len: Safe sequence length across all model configs.
     """
 
+    model_configs: Tuple[ModelConfig, ...]
     bt: int
-    max_hidden_size: int
+    batch_size: int
+    seq_len: int
 
 
-# ── Model Profiles ──────────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class MoEModelConfig:
+    """MoE model architecture profile for fused MoE benchmarks.
+
+    EP-adjusted values should be baked in: T = total_tokens / ep_size,
+    E = total_experts / ep_size.
+    """
+
+    name: str
+    T: int  # tokens per GPU (EP-adjusted)
+    E: int  # experts per GPU (EP-adjusted)
+    H: int  # hidden size
+    intermediate_dim: int  # expert intermediate size
+    K: int  # top-k
+
+
+# ── MoE Model Profiles ───────────────────────────────────────────────────────
+
+QWEN3_MOE_30B = MoEModelConfig(
+    name="qwen3_moe_30b",
+    T=8192,
+    E=128,
+    H=2048,
+    intermediate_dim=768,
+    K=8,
+)
+
+
+# ── Dense Model Profiles ─────────────────────────────────────────────────────
 
 LLAMA_2_7B = ModelConfig(
     name="llama_2_7b",
@@ -111,9 +154,80 @@ LLAMA_3_8B = ModelConfig(
     max_position_embeddings=8192,
 )
 
+QWEN_2_5_7B = ModelConfig(
+    name="qwen2.5_7b",
+    hidden_size=3584,
+    intermediate_size=18944,
+    vocab_size=152064,
+    num_attention_heads=28,
+    num_key_value_heads=4,
+    head_dim=128,
+    hidden_act="silu",
+    max_position_embeddings=32768,
+)
+
+QWEN_2_5_14B = ModelConfig(
+    name="qwen2.5_14b",
+    hidden_size=5120,
+    intermediate_size=13824,
+    vocab_size=152064,
+    num_attention_heads=40,
+    num_key_value_heads=8,
+    head_dim=128,
+    hidden_act="silu",
+    max_position_embeddings=32768,
+)
+
+QWEN_2_5_72B = ModelConfig(
+    name="qwen2.5_72b",
+    hidden_size=8192,
+    intermediate_size=29568,
+    vocab_size=152064,
+    num_attention_heads=64,
+    num_key_value_heads=8,
+    head_dim=128,
+    hidden_act="silu",
+    max_position_embeddings=32768,
+)
+
+DEEPSEEK_V2_LITE = ModelConfig(
+    name="deepseek_v2_lite",
+    hidden_size=2048,
+    intermediate_size=10944,
+    vocab_size=102400,
+    num_attention_heads=16,
+    num_key_value_heads=16,
+    head_dim=128,
+    hidden_act="silu",
+    max_position_embeddings=163840,
+    moe_intermediate_size=1408,
+    num_experts=64,
+    topk=6,
+)
+
+DEEPSEEK_V3 = ModelConfig(
+    name="deepseek_v3",
+    hidden_size=7168,
+    intermediate_size=18432,
+    vocab_size=129280,
+    num_attention_heads=128,
+    num_key_value_heads=128,
+    head_dim=128,
+    hidden_act="silu",
+    max_position_embeddings=163840,
+    moe_intermediate_size=2048,
+    num_experts=256,
+    topk=8,
+)
+
 MODEL_REGISTRY: Dict[str, ModelConfig] = {
     "llama_2_7b": LLAMA_2_7B,
     "llama_3_8b": LLAMA_3_8B,
+    "qwen2.5_7b": QWEN_2_5_7B,
+    "qwen2.5_14b": QWEN_2_5_14B,
+    "qwen2.5_72b": QWEN_2_5_72B,
+    "deepseek_v2_lite": DEEPSEEK_V2_LITE,
+    "deepseek_v3": DEEPSEEK_V3,
 }
 
 DEFAULT_MODEL_CONFIG = LLAMA_3_8B
@@ -224,35 +338,48 @@ def compute_seq_len_sweep_config(
     return SeqLenSweepConfig(batch_size=batch_size, seq_len=seq_len)
 
 
-def compute_hidden_size_sweep_config(
-    model_cfg: ModelConfig,
-    kernel_peak_bytes: int,
-    bt: int = 4096,
+def compute_model_config_sweep_config(
+    model_configs: List[ModelConfig],
+    probe_fn_factory: Callable[[ModelConfig, int], Callable[[], torch.Tensor]],
+    bt: int = 2048,
     memory_utilization: float = 0.4,
-    max_hidden_size_multiplier: int = 4,
-) -> HiddenSizeSweepConfig:
-    """Compute safe max_hidden_size for hidden_size sweep (e.g. DyT).
+) -> ModelConfigSweepConfig:
+    """Find safe (batch_size, seq_len) that works across all model configs.
 
-    For kernels with shape (BT, hidden_size) where BT is fixed and we sweep
-    hidden_size.  Uses probe peak memory to derive max_hidden_size.
-    Device memory is obtained internally via :func:`~liger_kernel.utils.get_total_gpu_memory`.
+    Probes each model config at a small token count to measure peak memory,
+    then picks the most conservative parameters that fit within device memory.
 
     Args:
-        model_cfg: Model config.
-        kernel_peak_bytes: Peak memory from probe (BT, model.hidden_size).
-        bt: Fixed BT dimension; must match the probe.
+        model_configs: Model configs to benchmark.
+        probe_fn_factory: Factory ``(model_cfg, probe_seq_len) -> probe_fn``.
+            The returned probe_fn should perform setup + forward pass and
+            return a tensor suitable for ``.backward()``, same contract as
+            :func:`estimate_kernel_peak_memory`'s *probe_fn*.
+        bt: Target total tokens (batch_size * seq_len).
         memory_utilization: Fraction of device memory to use.
-        max_hidden_size_multiplier: Cap max_hidden_size at model.hidden_size * this.
     """
     total_memory_gb = get_total_gpu_memory()
     usable_bytes = total_memory_gb * (1024**3) * memory_utilization
-    kernel_bpt = max(1, kernel_peak_bytes // bt)
-    max_hidden_size = min(
-        model_cfg.hidden_size * max_hidden_size_multiplier,
-        max(
-            model_cfg.hidden_size,
-            int(usable_bytes * model_cfg.hidden_size / (bt * kernel_bpt)),
-        ),
+
+    probe_seq_len = min(bt, 1024)
+    max_bytes_per_token = 0
+
+    for model_cfg in model_configs:
+        probe_fn = probe_fn_factory(model_cfg, probe_seq_len)
+        peak_bytes = estimate_kernel_peak_memory(probe_fn)
+        bpt = max(1, peak_bytes // probe_seq_len)
+        max_bytes_per_token = max(max_bytes_per_token, bpt)
+
+    max_tokens = max(1, int(usable_bytes / max_bytes_per_token))
+    safe_bt = min(bt, max_tokens)
+
+    seq_len = min(safe_bt, 8192)
+    seq_len = 2 ** int(math.log2(seq_len)) if seq_len >= 1024 else 1024
+    batch_size = max(1, safe_bt // seq_len)
+
+    return ModelConfigSweepConfig(
+        model_configs=tuple(model_configs),
+        bt=batch_size * seq_len,
+        batch_size=batch_size,
+        seq_len=seq_len,
     )
-    max_hidden_size = max(1024, 2 ** int(math.log2(max_hidden_size)))
-    return HiddenSizeSweepConfig(bt=bt, max_hidden_size=max_hidden_size)
