@@ -40,14 +40,13 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+      with:
+        repository: linkedin/Liger-Kernel
 
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
         python-version: '3.10'
-
-    - name: Checkout Liger-Kernel
-      uses: actions/checkout@v6
 
     - name: Setup uv
       uses: astral-sh/setup-uv@v7
