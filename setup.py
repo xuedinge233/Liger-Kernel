@@ -4,6 +4,7 @@ import subprocess
 
 from typing import Literal
 
+from setuptools import find_packages
 from setuptools import setup
 
 
@@ -24,31 +25,46 @@ def get_default_dependencies():
         return [
             "torch>=2.6.0",
         ]
-    # TODO: Currently, triton-ascend is not compatible with torch 2.7.1. We will upgrade it later.
-    # TODO: triton-ascend v3.2.1 is expected to release soon with some incompatible API changes.
-    # Until we adapt to those changes, pin triton-ascend to v3.2.0.
     elif platform == "npu":
-        return ["torch==2.6.0", "torch_npu==2.6.0", "triton-ascend==3.2.0"]
+        return ["torch==2.9.0", "torch_npu==2.9.0", "triton-ascend==3.2.2"]
 
 
 def get_optional_dependencies():
     """Get optional dependency groups."""
+    cutile_deps = [
+        "cuda-tile",
+    ]
+    cutile_tileiras_deps = [
+        "cuda-tile[tileiras]",
+    ]
+    cutedsl_deps = [
+        "nvidia-cutlass-dsl>=4.6.0",
+        # Lets compiled CuTe DSL kernels take PyTorch tensors directly instead of
+        # marshalling each one through DLPack per call. The kernels fall back to
+        # the marshalling launch when it is absent, but on short kernels that
+        # per-call cost dominates: RMSNorm forward measured 53us -> 15us on B200.
+        "apache-tvm-ffi>=0.1.0",
+    ]
+    dev_deps = [
+        "transformers>=4.52.0",
+        "matplotlib>=3.7.2",
+        "ruff>=0.12.0,<0.16.0",
+        "pytest>=7.1.2",
+        "pytest-xdist",
+        "pytest-cov",
+        "pytest-asyncio",
+        "pytest-rerunfailures",
+        "datasets>=2.19.2",
+        "seaborn",
+        "mkdocs-material",
+        "torchvision>=0.20",
+        "prek>=0.2.28",
+    ]
     return {
-        "dev": [
-            "transformers>=4.52.0",
-            "matplotlib>=3.7.2",
-            "ruff>=0.12.0",
-            "pytest>=7.1.2",
-            "pytest-xdist",
-            "pytest-cov",
-            "pytest-asyncio",
-            "pytest-rerunfailures",
-            "datasets>=2.19.2",
-            "seaborn",
-            "mkdocs-material",
-            "torchvision>=0.20",
-            "prek>=0.2.28",
-        ]
+        "cutile": cutile_deps,
+        "cutile-tileiras": cutile_tileiras_deps,
+        "cutedsl": cutedsl_deps,
+        "dev": dev_deps,
     }
 
 
@@ -117,7 +133,7 @@ def get_platform() -> Literal["cuda", "rocm", "cpu", "xpu", "npu"]:
 setup(
     name="liger_kernel",
     package_dir={"": "src"},
-    packages=["liger_kernel"],
+    packages=find_packages(where="src"),
     install_requires=get_default_dependencies(),
     extras_require=get_optional_dependencies(),
     classifiers=[

@@ -133,7 +133,6 @@ def liger_cross_entropy_forward_kernel(
                     logits_row_ptr + X_offsets,
                     mask=X_offsets < n_cols,
                     other=float("-inf"),
-                    eviction_policy="evict_first",
                 ).cast(tl.float32)
                 if HAS_SOFTCAPPING:
                     X_block = softcap * tanh(X_block / softcap)
@@ -248,7 +247,6 @@ def liger_cross_entropy_forward_kernel_plain(
             logits_row_ptr + offs,
             mask=offs < n_cols,
             other=float("-inf"),
-            eviction_policy="evict_first",
         ).cast(tl.float32)
         block_max = tl.max(x)
         m_new = tl.maximum(m, block_max)
@@ -350,20 +348,23 @@ def liger_cross_entropy_backward_kernel_no_weight(
                     # Per-row loss was stored without mean scaling (``reduction`` ``sum`` or ``none``).
                     lse = loss_row + x_y
 
+            ori_X_y = tl.load(X_ptr + X_ptr_offset + y).cast(tl.float32)
             for i in range(0, n_cols, BLOCK_SIZE):
                 X_offsets = i + tl.arange(0, BLOCK_SIZE)
                 X_block = tl.load(
                     X_ptr + X_ptr_offset + X_offsets,
                     mask=X_offsets < n_cols,
                     other=float("-inf"),
-                    eviction_policy="evict_first",
                 ).cast(tl.float32)
                 grad = tl.exp(X_block - lse) * final_scale
                 tl.store(dX_ptr + dX_ptr_offset + X_offsets, grad, mask=X_offsets < n_cols)
 
-            target_ptr = dX_ptr + dX_ptr_offset + y
-            target_grad = tl.load(target_ptr).cast(tl.float32)
-            tl.store(target_ptr, target_grad - final_scale)
+            # Recompute dx_y in fp32 and overwrite dX[y]. A read-modify-write of the
+            # low-precision value stored in the loop loses bits when softmax(x_y) -> 1.
+            tl.debug_barrier()
+            softmax_X_y = tl.exp(ori_X_y - lse)
+            dx_y = (softmax_X_y - 1.0) * final_scale
+            tl.store(dX_ptr + dX_ptr_offset + y, dx_y)
 
 
 @triton.jit
@@ -461,7 +462,6 @@ def liger_cross_entropy_backward_kernel(
                     X_ptr + X_ptr_offset + X_offsets,
                     mask=X_offsets < n_cols,
                     other=float("-inf"),
-                    eviction_policy="evict_first",
                 ).cast(tl.float32)
                 if HAS_SOFTCAPPING:
                     intermediate = tanh(X_block / softcap)
